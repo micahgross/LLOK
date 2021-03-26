@@ -447,7 +447,7 @@ if Options['evaluation_mode']==' ':
 elif Options['evaluation_mode']=='  ':
     Options['evaluation_mode'] = 'entire test'
 
-Options['save_variables'] = st.sidebar.checkbox('save variables', value=True)# False# 
+Options['save_variables'] = False# st.sidebar.checkbox('save variables', value=True)# 
 Options['smooth_position'] = st.sidebar.checkbox('smooth position', value=True,
                                                           # key='smooth_position',
                                                           )
@@ -521,7 +521,7 @@ if Options['evaluation_mode'] == 'entire test':
         #     )
         test_date = st.date_input('select test date')
         subj_name = st.text_input('enter athlete name',
-                                  value='Jonas Baumann'
+                                  # value='Hans Muster'
                                   )
         body_mass = st.text_input('body mass (kg)',
                                   # value=80
@@ -536,13 +536,13 @@ if Options['evaluation_mode'] == 'entire test':
         st.write('enter loads (kg)')
         col1, col2, col3 = st.beta_columns(3)
         load_1 = col1.text_input('load 1',
-                                  value=6
+                                  # value=6
                                   )
         load_2 = col2.text_input('load 2',
-                                  value=12
+                                  # value=12
                                   )
         load_3 = col3.text_input('load 3',
-                                  value=18
+                                  # value=18
                                   )
         if all([
                 load_1 != '',
