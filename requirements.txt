@@ -1,0 +1,6 @@
+scipy==1.4.1
+streamlit==0.76.0
+XlsxWriter==1.2.7
+numpy==1.18.1
+pandas==1.0.1
+plotly==4.9.0
