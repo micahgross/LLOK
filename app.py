@@ -31,12 +31,20 @@ def split_trials(data_export_files, Options):#(Directory,Files,opts):#,opts
     #         print(o)
         
     for file in data_export_files:# file = data_export_files[0] # file = data_export_files[data_export_files.index(file)+1]
-        load_nr = int(file.name.split('.')[0])
+        # load_nr = int(file.name.split('.')[0])
+        # '''
+        # file_name = data_export_file_names[0]
+        # file_name = data_export_file_names[0].replace('.txt','.3.txt')
+        # int(file_name.split('.txt')[0].split('_')[-1][0])
+        # '''
+        load_nr = int(file.name.split('.txt')[0].split('_')[-1][0])
         if load_nr not in Split_Trials.keys():
             Split_Trials[load_nr] = {}
         
-        if len(file.name)>5:# e.g., like 1.1.txt, not 1.txt
-            rep_nr_first = int(file.name.split('.')[1])
+        # if len(file.name)>5:# e.g., like 1.1.txt, not 1.txt
+        if len(file.name.split('.txt')[0].split('_')[-1])>1:# e.g., like 1.1.txt, not 1.txt
+            # rep_nr_first = int(file.name.split('.')[1])
+            rep_nr_first = int(file.name.split('.txt')[0].split('_')[-1].split('.')[1])
         else:# e.g. file='1.txt'
             rep_nr_first = 1
 
@@ -277,7 +285,8 @@ def all_plots(Trials, Cropped_Trials):
     fig = make_subplots(
         rows=len(Trials.keys()),
         row_titles=['load '+str(ld) for ld in Trials.keys()],
-        cols=max([len(Trials[ld]) for ld in Trials.keys()]),
+        # cols=max([len(Trials[ld]) for ld in Trials.keys()]),
+        cols=max([max([tr for tr in Trials[ld].keys()]) for ld in Trials.keys()]),
         subplot_titles=sum([['trial '+str(t) if ld==1 else '' for t in range(1, 1+max([len(Trials[ld]) for ld in Trials.keys()]))] for ld in Trials.keys()],[]),
         # subplot_titles=sum([['trial '+str(t) for t in range(1, 1+max([len(Trials[ld]) for ld in Trials.keys()]))] for ld in Trials.keys()],[]),
         shared_xaxes=True,
@@ -414,7 +423,7 @@ def generate_excel(trial_parameters, load_parameters, oneLine_load_parameters, s
         trial_parameters.to_excel(writer, sheet_name='trial parameters', index=False)
         load_parameters.to_excel(writer, sheet_name='load parameters', index=False)
         oneLine_load_parameters.to_excel(writer, sheet_name='load parameters one line', index=False)
-        oneLine_load_parameters.T.to_excel(writer, sheet_name='load parameters one column', index=True)
+        oneLine_load_parameters.T.to_excel(writer, sheet_name='load parameters one column', index=True, header=False)
         writer.save()
         processed_data = output.getvalue()
         
@@ -513,71 +522,104 @@ if Options['evaluation_mode'] == 'quick check':
     
     
 if Options['evaluation_mode'] == 'entire test':
-    with st.beta_expander('test settings', expanded=True):
-        # col1, col2, col3 = st.beta_columns([1,0.4,1])
-        # sex = col2.select_slider(
-        #     'select athlete sex',
-        #     options=['male', 'female'],
-        #     )
-        test_date = st.date_input('select test date')
-        subj_name = st.text_input('enter athlete name',
-                                  # value='Hans Muster'
-                                  )
-        body_mass = st.text_input('body mass (kg)',
-                                  # value=80
-                                  )
-        if body_mass != '':
-            try:
-                body_mass = float(body_mass)
-            except:
-                body_mass = None
-                st.write('Error: body mass must be numerical')
-        
-        st.write('enter loads (kg)')
-        col1, col2, col3 = st.beta_columns(3)
-        load_1 = col1.text_input('load 1',
-                                  # value=6
-                                  )
-        load_2 = col2.text_input('load 2',
-                                  # value=12
-                                  )
-        load_3 = col3.text_input('load 3',
-                                  # value=18
-                                  )
-        if all([
-                load_1 != '',
-                load_2 != '',
-                load_3 != ''
-                ]):
-            try:
-                loads_kg = [float(load_1), float(load_2), float(load_3)]# load_1, load_2, load_3 = 6, 18, 30 or load_1, load_2, load_3 = 6.5, 18.5, 30.5 or load_1, load_2, load_3 = '6', '18.5', '30.5'
-                if not all([loads_kg[i]<loads_kg[i+1] for i in range(len(loads_kg)-1)]):
-                    loads_kg = None
-                    st.write('Error: loads must be in ascending order')
-            except:# load_1, load_2, load_3 = 'a', 'b', []
-                st.write('Error: loads must be numerical')
-        else:
-            loads_kg = None
-        
-        # expander._setattr__('expanded', False)
+    with st.beta_expander('file upload', expanded=True):
+        data_export_files = st.file_uploader('upload all txt export files', accept_multiple_files=True)
+    if data_export_files is not None and data_export_files != []:
+        with st.beta_expander('test settings', expanded=True):
+            # col1, col2, col3 = st.beta_columns([1,0.4,1])
+            # sex = col2.select_slider(
+            #     'select athlete sex',
+            #     options=['male', 'female'],
+            #     )
+            subj_name = ' '.join(reversed(data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[:2]))
 
-    if all([
-            subj_name != '',
-            body_mass != '',
-            loads_kg is not None,
-            ]):
-        with st.beta_expander('file upload', expanded=True):
-            data_export_files = st.file_uploader('upload all txt export files', accept_multiple_files=True)
-        if data_export_files is not None and data_export_files != []:
+            # st.write(
+            #     ' '.join(reversed(data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[:2]))
+            #     )
+            # st.write(subj_name)
+            # st.write(type(subj_name))
+            test_date = datetime.date(
+                    *[
+                        int(x) for x in [
+                            '20'+x for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[4:5]
+                            ] + [
+                                x for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[3:5]
+                                ]
+                        ]
+                    )
+            # st.write(
+            #     datetime.date(
+            #         *[
+            #             int(x) for x in [
+            #                 '20'+x for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[4:5]
+            #                 ] + [
+            #                     x for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[3:5]
+            #                     ]
+            #             ]
+            #         )
+            #     )
+            # st.write(test_date)
+            # st.write(type(test_date))
+            test_date = st.date_input('select test date',
+                                      value=test_date,
+                                      )
+            subj_name = st.text_input('enter athlete name',
+                                      value=subj_name,
+                                      )
+            body_mass = st.text_input('body mass (kg)',
+                                      # value=80
+                                      )
+            if body_mass != '':
+                try:
+                    body_mass = float(body_mass)
+                except:
+                    body_mass = None
+                    st.write('Error: body mass must be numerical')
+            
+            st.write('enter loads (kg)')
+            col1, col2, col3 = st.beta_columns(3)
+            load_1 = col1.text_input('load 1',
+                                      # value=6
+                                      )
+            load_2 = col2.text_input('load 2',
+                                      # value=12
+                                      )
+            load_3 = col3.text_input('load 3',
+                                      # value=18
+                                      )
+            if all([
+                    load_1 != '',
+                    load_2 != '',
+                    load_3 != ''
+                    ]):
+                try:
+                    loads_kg = [float(load_1), float(load_2), float(load_3)]# load_1, load_2, load_3 = 6, 18, 30 or load_1, load_2, load_3 = 6.5, 18.5, 30.5 or load_1, load_2, load_3 = '6', '18.5', '30.5'
+                    if not all([loads_kg[i]<loads_kg[i+1] for i in range(len(loads_kg)-1)]):
+                        loads_kg = None
+                        st.write('Error: loads must be in ascending order')
+                except:# load_1, load_2, load_3 = 'a', 'b', []
+                    st.write('Error: loads must be numerical')
+            else:
+                loads_kg = None
+        
+    # #     # expander._setattr__('expanded', False)
+
+        if all([
+                subj_name != '',
+                body_mass != '',
+                loads_kg is not None,
+                ]):
             Split_Trials = split_trials(data_export_files, Options)
+            trial_selections = {}
             with st.beta_expander('trial selector', expanded=True):
-                trial_selections = {}
                 for ld in sorted(Split_Trials.keys()):
                     trial_selections[ld] = st.multiselect(
                         label='select valid trials, load '+str(ld),
                         options=[tr for tr in sorted(Split_Trials[ld].keys())],
                         default=[tr for tr in sorted(Split_Trials[ld].keys())],
                         )
+            # if trial_selections != {}:
+            #     st.write(trial_selections)
             Selected_Trials = {}
             for ld in trial_selections.keys():
                 Selected_Trials[ld] = {}
@@ -603,7 +645,7 @@ if Options['evaluation_mode'] == 'entire test':
                 
                 with open(os.path.join(os.getcwd(), 'saved_variables','subj_name.json'), 'w') as fp:
                     json.dump(subj_name, fp)
-
+    
                 with open(os.path.join(os.getcwd(), 'saved_variables','body_mass.json'), 'w') as fp:
                     json.dump(body_mass, fp)
         
@@ -617,9 +659,6 @@ if Options['evaluation_mode'] == 'entire test':
                 with open(os.path.join(os.getcwd(), 'saved_variables','test_date.json'), 'w') as fp:
                     json.dump(str(test_date.strftime('%Y-%m-%d')), fp)# json.dump(test_date.strftime('%Y-%m-%dT%H:%M:%S.%f'), fp)
         
-                with open(os.path.join(os.getcwd(), 'saved_variables','trial_selections.json'), 'w') as fp:
-                    json.dump(trial_selections, fp)
-        
                 jsonified_Split_Trials = {}
                 for load_nr in Split_Trials.keys():
                     jsonified_Split_Trials[load_nr] = {}
@@ -627,6 +666,9 @@ if Options['evaluation_mode'] == 'entire test':
                         jsonified_Split_Trials[load_nr][rep_nr_in_load] = Split_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
                 with open(os.path.join(os.getcwd(), 'saved_variables','Split_Trials.json'), 'w') as fp:
                     json.dump(jsonified_Split_Trials, fp)
+        
+                with open(os.path.join(os.getcwd(), 'saved_variables','trial_selections.json'), 'w') as fp:
+                    json.dump(trial_selections, fp)
         
                 jsonified_Selected_Trials = {}
                 for load_nr in Selected_Trials.keys():
@@ -636,6 +678,14 @@ if Options['evaluation_mode'] == 'entire test':
                 with open(os.path.join(os.getcwd(), 'saved_variables','Selected_Trials.json'), 'w') as fp:
                     json.dump(jsonified_Selected_Trials, fp)
         
+                jsonified_Cropped_Trials = {}
+                for load_nr in Cropped_Trials.keys():
+                    jsonified_Cropped_Trials[load_nr] = {}
+                    for rep_nr_in_load in Cropped_Trials[load_nr].keys():
+                        jsonified_Cropped_Trials[load_nr][rep_nr_in_load] = Cropped_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
+                with open(os.path.join(os.getcwd(), 'saved_variables','Cropped_Trials.json'), 'w') as fp:
+                    json.dump(jsonified_Cropped_Trials, fp)
+
                 jsonified_Trials = {}
                 for load_nr in Trials.keys():
                     jsonified_Trials[load_nr] = {}
@@ -644,16 +694,9 @@ if Options['evaluation_mode'] == 'entire test':
                 with open(os.path.join(os.getcwd(), 'saved_variables','Trials.json'), 'w') as fp:
                     json.dump(jsonified_Trials, fp)
         
-                jsonified_Cropped_Trials = {}
-                for load_nr in Cropped_Trials.keys():
-                    jsonified_Cropped_Trials[load_nr] = {}
-                    for rep_nr_in_load in Cropped_Trials[load_nr].keys():
-                        jsonified_Cropped_Trials[load_nr][rep_nr_in_load] = Cropped_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
-                with open(os.path.join(os.getcwd(), 'saved_variables','Cropped_Trials.json'), 'w') as fp:
-                    json.dump(jsonified_Cropped_Trials, fp)
-        
                 with open(os.path.join(os.getcwd(), 'saved_variables','Options.json'), 'w') as fp:
                     json.dump(Options, fp)
+        
 
 
 
@@ -708,12 +751,14 @@ def recover_saved_variables():
         del f, fh, fp, files, load_nr, rep_nr_in_load, int_key_dict
     elif Options['evaluation_mode'] == 'entire test':
         data_export_files = []
+        data_export_file_names = []
         for (_, _, files) in os.walk(os.path.join(os.getcwd(), 'saved_variables')):
             files = [os.path.join(os.getcwd(), 'saved_variables', f) for f in files if '_bytesIO.txt' in f]
         for f in files:
             with open(f, 'rb') as fh:
                 file = BytesIO(fh.read())
                 data_export_files.append(file)
+                data_export_file_names.append(f.split('\\')[-1].replace('_bytesIO',''))
         with open(os.path.join(os.getcwd(),'saved_variables','subj_name.json'), 'r') as fp:
             subj_name = json.load(fp)
         with open(os.path.join(os.getcwd(),'saved_variables','body_mass.json'), 'r') as fp:
@@ -722,9 +767,7 @@ def recover_saved_variables():
             loads_kg = json.load(fp)
         with open(os.path.join(os.getcwd(),'saved_variables','test_date.json'), 'r') as fp:
             test_date = datetime.date(datetime.strptime(json.load(fp) , '%Y-%m-%d'))# 
-        with open(os.path.join(os.getcwd(),'saved_variables','trial_selections.json'), 'r') as fp:
-            trial_selections = json.load(fp)
-    
+
         with open(os.path.join(os.getcwd(),'saved_variables','Split_Trials.json'), 'r') as fp:
             int_key_dict = json.load(fp)# Trials = json.load(fp)
             Split_Trials = {}
@@ -732,6 +775,9 @@ def recover_saved_variables():
                 Split_Trials[int(load_nr)] = {}
                 for rep_nr_in_load in int_key_dict[load_nr].keys():
                     Split_Trials[int(load_nr)][int(rep_nr_in_load)] = pd.read_json(int_key_dict[load_nr][rep_nr_in_load], orient='index', convert_dates=True)
+    
+        with open(os.path.join(os.getcwd(),'saved_variables','trial_selections.json'), 'r') as fp:
+            trial_selections = json.load(fp)
     
         with open(os.path.join(os.getcwd(),'saved_variables','Selected_Trials.json'), 'r') as fp:
             int_key_dict = json.load(fp)# Trials = json.load(fp)
