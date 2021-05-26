@@ -467,7 +467,7 @@ if Options['evaluation_mode']==' ':
 elif Options['evaluation_mode']=='  ':
     Options['evaluation_mode'] = 'entire test'
 
-Options['save_variables'] = True# st.sidebar.checkbox('save variables', value=True)# 
+Options['save_variables'] = False# st.sidebar.checkbox('save variables', value=True)# 
 Options['smooth_position'] = st.sidebar.checkbox('smooth position', value=True,
                                                           # key='smooth_position',
                                                           )
