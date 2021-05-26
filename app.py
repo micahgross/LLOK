@@ -19,11 +19,12 @@ import base64
 import datetime
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from scipy.signal import savgol_filter
+from scipy.stats import theilslopes# linregress, 
 
 ##%%
 @st.cache(allow_output_mutation=True)# avoids error due to changing this function's output in a successive step
 def split_trials(data_export_files, Options):#(Directory,Files,opts):#,opts
-    from scipy.signal import savgol_filter
     Split_Trials={}
     # if any([Opts[x] for x in Opts.keys() if type(Opts[x])==bool]):
     #     print('Processing options:')
@@ -77,11 +78,17 @@ def split_trials(data_export_files, Options):#(Directory,Files,opts):#,opts
         for n,i_mid in enumerate(idx_mid):# n,i_mid = 0,idx_mid[0] # n,i_mid = n+1,idx_mid[n+1]
             crop_on.append(i_mid-1000 if i_mid-1000>=0 else 0)# 1000 samples prior to crossing middle position
             crop_off.append(i_mid+1000 if i_mid+1000<len(df) else len(df))# 1000 samples after crossing middle position
-        
+
         nr_trials = len(idx_mid)
-        for r in list(range(nr_trials)):# r=0
-            rep_nr_in_load = r + rep_nr_first
-            Split_Trials[load_nr][rep_nr_in_load] = df.loc[crop_on[r]:crop_off[r], ['time', 'sample_duration', 'position', 'F_left', 'F_right', 'F_tot', 'v', 'P', 'RFD_left', 'RFD_right', 'RFD_tot']]
+        for r in list(range(nr_trials)):# r=0 # r=r+1
+            if df.loc[crop_on[r]:idx_mid[r], 'position'].max() > df.loc[idx_mid[r]:crop_off[r], 'position'].min():
+                if theilslopes(df.loc[crop_on[r]:crop_off[r], 'position'], df.loc[crop_on[r]:crop_off[r]].index)[0]<0:
+                    # try:
+                    #     rep_nr_in_load+= 1
+                    # except:
+                    #     rep_nr_in_load = rep_nr_first
+                    rep_nr_in_load = rep_nr_first + len(Split_Trials[load_nr].keys())
+                    Split_Trials[load_nr][rep_nr_in_load] = df.loc[crop_on[r]:crop_off[r], ['time', 'sample_duration', 'position', 'F_left', 'F_right', 'F_tot', 'v', 'P', 'RFD_left', 'RFD_right', 'RFD_tot']]
             
     return Split_Trials
 
@@ -467,30 +474,26 @@ Options['smooth_v'] = st.sidebar.checkbox('smooth velocity', value=False,
                                                           # key='smooth_v',
                                                           )
 Options['parameters_to_excel'] = st.sidebar.checkbox('write results to excel', value=True)
+# if Options['save_variables']:
+#     with open(os.path.join(os.getcwd(), 'saved_variables','Options.json'), 'w') as fp:
+#         json.dump(Options, fp)
+
 if Options['evaluation_mode'] == 'quick check':
+    if Options['save_variables']:
+        for (path, _, files) in os.walk(os.path.join(os.getcwd(), 'saved_variables')):
+            for f in files:
+                os.remove(os.path.join(path, f))
+        with open(os.path.join(os.getcwd(), 'saved_variables','Options.json'), 'w') as fp:
+            json.dump(Options, fp)
     upper_container = st.empty()
     quick_check_file = st.file_uploader("upload one txt export file", accept_multiple_files=False)
     if quick_check_file is not None:
-        Split_Trials = split_trials([quick_check_file], Options)
-        Trials = crop_center_trials(Split_Trials)
-        Cropped_Trials = crop_precisely(Trials)
-        with upper_container:
-            col1, col2 = st.beta_columns([0.2, 1])
-            trial_nr = col1.radio('select trial in file to display',
-                                  options=sorted(Trials[list(Trials.keys())[0]].keys()),
-                                  )
-            quick_fig = quick_plot(Trials, Cropped_Trials, trial_nr)
-            col2.plotly_chart(quick_fig)
         if Options['save_variables']:
-
-            for (path, _, files) in os.walk(os.path.join(os.getcwd(), 'saved_variables')):
-                for f in files:
-                    os.remove(os.path.join(path, f))
-
             for f in [quick_check_file]:
                 with open(os.path.join(os.getcwd(), 'saved_variables','.'.join(f.name.split('.')[:-1])+'_bytesIO.txt'), 'wb') as fp:
                     fp.write(f.getbuffer())
-
+        Split_Trials = split_trials([quick_check_file], Options)
+        if Options['save_variables']:
             jsonified_Split_Trials = {}
             for load_nr in Split_Trials.keys():
                 jsonified_Split_Trials[load_nr] = {}
@@ -498,7 +501,9 @@ if Options['evaluation_mode'] == 'quick check':
                     jsonified_Split_Trials[load_nr][rep_nr_in_load] = Split_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
             with open(os.path.join(os.getcwd(), 'saved_variables','Split_Trials.json'), 'w') as fp:
                 json.dump(jsonified_Split_Trials, fp)
-    
+
+        Trials = crop_center_trials(Split_Trials)
+        if Options['save_variables']:
             jsonified_Trials = {}
             for load_nr in Trials.keys():
                 jsonified_Trials[load_nr] = {}
@@ -507,6 +512,8 @@ if Options['evaluation_mode'] == 'quick check':
             with open(os.path.join(os.getcwd(),'saved_variables','Trials.json'), 'w') as fp:
                 json.dump(jsonified_Trials, fp)
 
+        Cropped_Trials = crop_precisely(Trials)
+        if Options['save_variables']:
             jsonified_Cropped_Trials = {}
             for load_nr in Cropped_Trials.keys():
                 jsonified_Cropped_Trials[load_nr] = {}
@@ -515,15 +522,31 @@ if Options['evaluation_mode'] == 'quick check':
             with open(os.path.join(os.getcwd(),'saved_variables','Cropped_Trials.json'), 'w') as fp:
                 json.dump(jsonified_Cropped_Trials, fp)
 
+        with upper_container:
+            col1, col2 = st.beta_columns([0.2, 1])
+            trial_nr = col1.radio('select trial in file to display',
+                                  options=sorted(Trials[list(Trials.keys())[0]].keys()),
+                                  )
+            quick_fig = quick_plot(Trials, Cropped_Trials, trial_nr)
+            col2.plotly_chart(quick_fig)
+        if Options['save_variables']:
             with open(os.path.join(os.getcwd(), 'saved_variables','Options.json'), 'w') as fp:
                 json.dump(Options, fp)
-                
-                
-    
     
 if Options['evaluation_mode'] == 'entire test':
+    if Options['save_variables']:
+        for (path, _, files) in os.walk(os.path.join(os.getcwd(), 'saved_variables')):
+            for f in files:
+                os.remove(os.path.join(path, f))
+        with open(os.path.join(os.getcwd(), 'saved_variables','Options.json'), 'w') as fp:
+            json.dump(Options, fp)
     with st.beta_expander('file upload', expanded=True):
         data_export_files = st.file_uploader('upload all txt export files', accept_multiple_files=True)
+    if Options['save_variables']:
+        for f in data_export_files:
+            with open(os.path.join(os.getcwd(), 'saved_variables','.'.join(f.name.split('.')[:-1])+'_bytesIO.txt'), 'wb') as fp:
+                fp.write(f.getbuffer())
+
     if data_export_files is not None and data_export_files != []:
         with st.beta_expander('test settings', expanded=True):
             # col1, col2, col3 = st.beta_columns([1,0.4,1])
@@ -563,9 +586,16 @@ if Options['evaluation_mode'] == 'entire test':
             test_date = st.date_input('select test date',
                                       value=test_date,
                                       )
+            if Options['save_variables']:
+                with open(os.path.join(os.getcwd(), 'saved_variables','test_date.json'), 'w') as fp:
+                    json.dump(str(test_date.strftime('%Y-%m-%d')), fp)# json.dump(test_date.strftime('%Y-%m-%dT%H:%M:%S.%f'), fp)
+
             subj_name = st.text_input('enter athlete name',
                                       value=subj_name,
                                       )
+            if Options['save_variables']:
+                with open(os.path.join(os.getcwd(), 'saved_variables','subj_name.json'), 'w') as fp:
+                    json.dump(subj_name, fp)
             body_mass = st.text_input('body mass (kg)',
                                       # value=80
                                       )
@@ -575,6 +605,9 @@ if Options['evaluation_mode'] == 'entire test':
                 except:
                     body_mass = None
                     st.write('Error: body mass must be numerical')
+            if Options['save_variables']:
+                with open(os.path.join(os.getcwd(), 'saved_variables','body_mass.json'), 'w') as fp:
+                    json.dump(body_mass, fp)
             
             st.write('enter loads (kg)')
             col1, col2, col3 = st.beta_columns(3)
@@ -601,6 +634,9 @@ if Options['evaluation_mode'] == 'entire test':
                     st.write('Error: loads must be numerical')
             else:
                 loads_kg = None
+            if Options['save_variables']:
+                with open(os.path.join(os.getcwd(), 'saved_variables','loads_kg.json'), 'w') as fp:
+                    json.dump(loads_kg, fp)
         
     # #     # expander._setattr__('expanded', False)
 
@@ -610,6 +646,15 @@ if Options['evaluation_mode'] == 'entire test':
                 loads_kg is not None,
                 ]):
             Split_Trials = split_trials(data_export_files, Options)
+            if Options['save_variables']:
+                jsonified_Split_Trials = {}
+                for load_nr in Split_Trials.keys():
+                    jsonified_Split_Trials[load_nr] = {}
+                    for rep_nr_in_load in Split_Trials[load_nr].keys():
+                        jsonified_Split_Trials[load_nr][rep_nr_in_load] = Split_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
+                with open(os.path.join(os.getcwd(), 'saved_variables','Split_Trials.json'), 'w') as fp:
+                    json.dump(jsonified_Split_Trials, fp)
+
             trial_selections = {}
             with st.beta_expander('trial selector', expanded=True):
                 for ld in sorted(Split_Trials.keys()):
@@ -618,6 +663,10 @@ if Options['evaluation_mode'] == 'entire test':
                         options=[tr for tr in sorted(Split_Trials[ld].keys())],
                         default=[tr for tr in sorted(Split_Trials[ld].keys())],
                         )
+            if Options['save_variables']:
+                with open(os.path.join(os.getcwd(), 'saved_variables','trial_selections.json'), 'w') as fp:
+                    json.dump(trial_selections, fp)
+
             # if trial_selections != {}:
             #     st.write(trial_selections)
             Selected_Trials = {}
@@ -625,10 +674,35 @@ if Options['evaluation_mode'] == 'entire test':
                 Selected_Trials[ld] = {}
                 for tr in trial_selections[ld]:
                     Selected_Trials[ld][tr] = Split_Trials[ld][tr]
-            
+            if Options['save_variables']:
+                jsonified_Selected_Trials = {}
+                for load_nr in Selected_Trials.keys():
+                    jsonified_Selected_Trials[load_nr] = {}
+                    for rep_nr_in_load in Selected_Trials[load_nr].keys():
+                        jsonified_Selected_Trials[load_nr][rep_nr_in_load] = Selected_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
+                with open(os.path.join(os.getcwd(), 'saved_variables','Selected_Trials.json'), 'w') as fp:
+                    json.dump(jsonified_Selected_Trials, fp)
+        
             Trials = crop_center_trials(Selected_Trials)
+            if Options['save_variables']:
+                jsonified_Trials = {}
+                for load_nr in Trials.keys():
+                    jsonified_Trials[load_nr] = {}
+                    for rep_nr_in_load in Trials[load_nr].keys():
+                        jsonified_Trials[load_nr][rep_nr_in_load] = Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
+                with open(os.path.join(os.getcwd(), 'saved_variables','Trials.json'), 'w') as fp:
+                    json.dump(jsonified_Trials, fp)
+        
             Cropped_Trials = crop_precisely(Trials)
-            
+            if Options['save_variables']:
+                jsonified_Cropped_Trials = {}
+                for load_nr in Cropped_Trials.keys():
+                    jsonified_Cropped_Trials[load_nr] = {}
+                    for rep_nr_in_load in Cropped_Trials[load_nr].keys():
+                        jsonified_Cropped_Trials[load_nr][rep_nr_in_load] = Cropped_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
+                with open(os.path.join(os.getcwd(), 'saved_variables','Cropped_Trials.json'), 'w') as fp:
+                    json.dump(jsonified_Cropped_Trials, fp)
+
             fig = all_plots(Trials, Cropped_Trials)
             st.plotly_chart(fig)
             
@@ -639,72 +713,8 @@ if Options['evaluation_mode'] == 'entire test':
                 st.markdown(generate_excel(trial_parameters, load_parameters, oneLine_load_parameters, subj_name, test_date), unsafe_allow_html=True)#, sign_digits=3
             
             if Options['save_variables']:
-                for (path, _, files) in os.walk(os.path.join(os.getcwd(), 'saved_variables')):
-                    for f in files:
-                        os.remove(os.path.join(path, f))
-                
-                with open(os.path.join(os.getcwd(), 'saved_variables','subj_name.json'), 'w') as fp:
-                    json.dump(subj_name, fp)
-    
-                with open(os.path.join(os.getcwd(), 'saved_variables','body_mass.json'), 'w') as fp:
-                    json.dump(body_mass, fp)
-        
-                with open(os.path.join(os.getcwd(), 'saved_variables','loads_kg.json'), 'w') as fp:
-                    json.dump(loads_kg, fp)
-        
-                for f in data_export_files:
-                    with open(os.path.join(os.getcwd(), 'saved_variables','.'.join(f.name.split('.')[:-1])+'_bytesIO.txt'), 'wb') as fp:
-                        fp.write(f.getbuffer())
-        
-                with open(os.path.join(os.getcwd(), 'saved_variables','test_date.json'), 'w') as fp:
-                    json.dump(str(test_date.strftime('%Y-%m-%d')), fp)# json.dump(test_date.strftime('%Y-%m-%dT%H:%M:%S.%f'), fp)
-        
-                jsonified_Split_Trials = {}
-                for load_nr in Split_Trials.keys():
-                    jsonified_Split_Trials[load_nr] = {}
-                    for rep_nr_in_load in Split_Trials[load_nr].keys():
-                        jsonified_Split_Trials[load_nr][rep_nr_in_load] = Split_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
-                with open(os.path.join(os.getcwd(), 'saved_variables','Split_Trials.json'), 'w') as fp:
-                    json.dump(jsonified_Split_Trials, fp)
-        
-                with open(os.path.join(os.getcwd(), 'saved_variables','trial_selections.json'), 'w') as fp:
-                    json.dump(trial_selections, fp)
-        
-                jsonified_Selected_Trials = {}
-                for load_nr in Selected_Trials.keys():
-                    jsonified_Selected_Trials[load_nr] = {}
-                    for rep_nr_in_load in Selected_Trials[load_nr].keys():
-                        jsonified_Selected_Trials[load_nr][rep_nr_in_load] = Selected_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
-                with open(os.path.join(os.getcwd(), 'saved_variables','Selected_Trials.json'), 'w') as fp:
-                    json.dump(jsonified_Selected_Trials, fp)
-        
-                jsonified_Cropped_Trials = {}
-                for load_nr in Cropped_Trials.keys():
-                    jsonified_Cropped_Trials[load_nr] = {}
-                    for rep_nr_in_load in Cropped_Trials[load_nr].keys():
-                        jsonified_Cropped_Trials[load_nr][rep_nr_in_load] = Cropped_Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
-                with open(os.path.join(os.getcwd(), 'saved_variables','Cropped_Trials.json'), 'w') as fp:
-                    json.dump(jsonified_Cropped_Trials, fp)
-
-                jsonified_Trials = {}
-                for load_nr in Trials.keys():
-                    jsonified_Trials[load_nr] = {}
-                    for rep_nr_in_load in Trials[load_nr].keys():
-                        jsonified_Trials[load_nr][rep_nr_in_load] = Trials[load_nr][rep_nr_in_load].to_json(orient='index', date_format='iso')
-                with open(os.path.join(os.getcwd(), 'saved_variables','Trials.json'), 'w') as fp:
-                    json.dump(jsonified_Trials, fp)
-        
                 with open(os.path.join(os.getcwd(), 'saved_variables','Options.json'), 'w') as fp:
                     json.dump(Options, fp)
-        
-
-
-
-
-                    
-            
-            
-                
         
 #%%
 def recover_saved_variables():
@@ -759,14 +769,14 @@ def recover_saved_variables():
                 file = BytesIO(fh.read())
                 data_export_files.append(file)
                 data_export_file_names.append(f.split('\\')[-1].replace('_bytesIO',''))
+        with open(os.path.join(os.getcwd(),'saved_variables','test_date.json'), 'r') as fp:
+            test_date = datetime.date(datetime.strptime(json.load(fp) , '%Y-%m-%d'))# 
         with open(os.path.join(os.getcwd(),'saved_variables','subj_name.json'), 'r') as fp:
             subj_name = json.load(fp)
         with open(os.path.join(os.getcwd(),'saved_variables','body_mass.json'), 'r') as fp:
             body_mass = json.load(fp)
         with open(os.path.join(os.getcwd(),'saved_variables','loads_kg.json'), 'r') as fp:
             loads_kg = json.load(fp)
-        with open(os.path.join(os.getcwd(),'saved_variables','test_date.json'), 'r') as fp:
-            test_date = datetime.date(datetime.strptime(json.load(fp) , '%Y-%m-%d'))# 
 
         with open(os.path.join(os.getcwd(),'saved_variables','Split_Trials.json'), 'r') as fp:
             int_key_dict = json.load(fp)# Trials = json.load(fp)
