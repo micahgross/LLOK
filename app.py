@@ -174,7 +174,7 @@ def get_trial_parameters(Cropped_Trials, loads_kg):
         trial_parameters = get_trial_parameters(Cropped_Trials)
     '''
     trial_parameters = pd.DataFrame()
-    for load_nr in sorted(Cropped_Trials.keys()):# load_nr = sorted(Cropped_Trials.keys())[0]
+    for load_nr in sorted(Cropped_Trials.keys()):# load_nr = sorted(Cropped_Trials.keys())[0] # load_nr = sorted(Cropped_Trials.keys())[sorted(Cropped_Trials.keys()).index(load_nr)+1]
         for trial_nr in sorted(Cropped_Trials[load_nr].keys()):# trial_nr = sorted(Cropped_Trials[load_nr].keys())[0]
             # extract trial from dictionary
             trial = Cropped_Trials[load_nr][trial_nr]
@@ -217,35 +217,39 @@ def get_load_parameters(subj_name, test_date, trial_parameters, method='mean3', 
         load_parameters = get_load_parameters(subj_name, test_date, trial_parameters, method='mean3', criterion='Ppeak', oneLine=False)
         oneLine_load_parameters = get_load_parameters(subj_name, test_date, trial_parameters, method='mean3', criterion='Ppeak', oneLine=True)
     '''
-    if oneLine==False:
-        load_parameters=pd.DataFrame(columns=['subj_name','test_date']+list(trial_parameters.columns))
-    elif oneLine==True:
-        load_parameters=pd.DataFrame(columns=['subj_name','test_date'])
+    if not oneLine:
+        load_parameters = pd.DataFrame(columns=['subj_name','test_date']+list(trial_parameters.columns))
+    elif oneLine:
+        load_parameters = pd.DataFrame(columns=['subj_name','test_date'])
         
-    for load_nr in sorted(trial_parameters['Load_nr'].unique()):# load_nr = sorted(trial_parameters['Load_nr'].unique())[0]
-        load_trials=trial_parameters[trial_parameters['Load_nr']==load_nr]
+    for load_nr in sorted(trial_parameters['Load_nr'].unique()):# load_nr = sorted(trial_parameters['Load_nr'].unique())[0] # load_nr = sorted(trial_parameters['Load_nr'].unique())[sorted(trial_parameters['Load_nr'].unique()).index(load_nr)+1]
+        load_trials = trial_parameters[trial_parameters['Load_nr']==load_nr]
         if method=='mean3':
-            idxs=load_trials.sort_values(by=[criterion]).iloc[1:4].index
+            idxs = load_trials.sort_values(by=[criterion]).iloc[1:4].index
         elif method=='best':
-            idxs=load_trials[criterion].idxmax()
+            idxs = load_trials[criterion].idxmax()
             
-        if oneLine==False:
-            selected_trials=load_trials.loc[idxs]
-            load_parameters.loc[load_nr,'Load_nr']=load_nr
+        if not oneLine:
+            selected_trials = load_trials.loc[idxs]
+            load_parameters.loc[load_nr,'Load_nr'] = load_nr
+            # load_parameters.loc[load_nr,'Load_kg'] = float(selected_trials['Load_kg'].mode())
+            # for par in trial_parameters.columns[3:]:# par = trial_parameters.columns[2:][0]
             for par in trial_parameters.columns[2:]:# par = trial_parameters.columns[2:][0]
-                load_parameters.loc[load_nr,par]=selected_trials[par].mean()
+                load_parameters.loc[load_nr,par] = selected_trials[par].mean()
                 
-        elif oneLine==True:
-            try:
-                selected_trials=selected_trials.append(load_trials.loc[idxs])
-            except:
-                selected_trials=load_trials.loc[idxs]
-            
+        elif oneLine:
+            # try:
+            #     selected_trials = selected_trials.append(load_trials.loc[idxs])
+            # except:
+            #     selected_trials = load_trials.loc[idxs]
+            selected_trials = load_trials.loc[idxs]
+            # load_parameters.loc[0,'Load_kg'+'_'+str(load_nr)] = float(selected_trials['Load_kg'].mode())
+            # for par in trial_parameters.columns[3:]:# par = trial_parameters.columns[2:][0]
             for par in trial_parameters.columns[2:]:# par = trial_parameters.columns[2:][0]
-                load_parameters.loc[0,par+'_'+str(load_nr)]=selected_trials[par].mean()
+                load_parameters.loc[0,par+'_'+str(load_nr)] = selected_trials[par].mean()
             
-    load_parameters['subj_name']=subj_name
-    load_parameters['test_date']=test_date
+    load_parameters['subj_name'] = subj_name
+    load_parameters['test_date'] = test_date
         
     return load_parameters
 
@@ -463,7 +467,7 @@ if Options['evaluation_mode']==' ':
 elif Options['evaluation_mode']=='  ':
     Options['evaluation_mode'] = 'entire test'
 
-Options['save_variables'] = False# st.sidebar.checkbox('save variables', value=True)# 
+Options['save_variables'] = True# st.sidebar.checkbox('save variables', value=True)# 
 Options['smooth_position'] = st.sidebar.checkbox('smooth position', value=True,
                                                           # key='smooth_position',
                                                           )
