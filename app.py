@@ -49,9 +49,11 @@ def split_trials(data_export_files, Options):#(Directory,Files,opts):#,opts
         else:# e.g. file='1.txt'
             rep_nr_first = 1
 
-        df = pd.read_csv(file, sep='\t', header=5, names=['timestamp', 'position', 'F_left', 'F_right'])# get raw data into dataframe
+        df = pd.read_csv(file, sep='\t', header=5, names=['timestamp', 'position', 'F_left', 'F_right'], usecols=range(4)).iloc[:-1]#, dtype=str)#, error_bad_lines=False, warn_bad_lines=True)#usecols=range(1))#, dtype={'timestamp': str, 'position': str, 'F_left': str, 'F_right': str})# get raw data into dataframe
         df['timestamp'] = pd.Series([pd.Timestamp(df.loc[i, 'timestamp']) for i in df.index])# convert to true timestamp format
-        df['sample_duration'] = pd.Series([0] + [(df.loc[i, 'timestamp'] - df.loc[i-1, 'timestamp']).delta/10**9 for i in df.index[1:]])# delta return nanoseconds; dividing by 10**9 gives seconds
+        df['sample_duration'] = df['timestamp'].diff().dt.total_seconds()#.iloc[1:-1]pd.Series([0] + [(df.loc[i, 'timestamp'] - df.loc[i-1, 'timestamp']).delta/10**9 for i in df.index[1:]])# delta return nanoseconds; dividing by 10**9 gives seconds
+        for c in df.columns[1:]:
+            df[c] = pd.to_numeric(df[c])
         df['time'] = df['sample_duration'].cumsum()
         df['position'] = df['position']/1000.# convert mm to m
         if Options['smooth_position']:
