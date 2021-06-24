@@ -555,40 +555,32 @@ if Options['evaluation_mode'] == 'entire test':
 
     if data_export_files is not None and data_export_files != []:
         with st.beta_expander('test settings', expanded=True):
-            # col1, col2, col3 = st.beta_columns([1,0.4,1])
-            # sex = col2.select_slider(
-            #     'select athlete sex',
-            #     options=['male', 'female'],
-            #     )
             subj_name = ' '.join(reversed(data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[:2]))
 
-            # st.write(
-            #     ' '.join(reversed(data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[:2]))
-            #     )
-            # st.write(subj_name)
-            # st.write(type(subj_name))
             test_date = datetime.date(
                     *[
                         int(x) for x in [
                             '20'+x for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[4:5]
                             ] + [
-                                x for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[3:5]
-                                ]
+                                int(x) for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[3:4]
+                                ] + [
+                                    int(x) for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[2:3]
+                                    ]
                         ]
                     )
-            # st.write(
-            #     datetime.date(
+
+                                    # test_date = datetime.date(
             #         *[
             #             int(x) for x in [
-            #                 '20'+x for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[4:5]
+            #                 '20'+x for x in data_export_file_names[0].replace('.txt','').split('-')[0].split('_')[4:5]
             #                 ] + [
-            #                     x for x in data_export_files[0].name.replace('.txt','').split('-')[0].split('_')[3:5]
-            #                     ]
+            #                     int(x) for x in data_export_file_names[0].replace('.txt','').split('-')[0].split('_')[3:4]
+            #                     ] + [
+            #                         int(x) for x in data_export_file_names[0].replace('.txt','').split('-')[0].split('_')[2:3]
+            #                         ]
             #             ]
             #         )
-            #     )
-            # st.write(test_date)
-            # st.write(type(test_date))
+                                    
             test_date = st.date_input('select test date',
                                       value=test_date,
                                       )
